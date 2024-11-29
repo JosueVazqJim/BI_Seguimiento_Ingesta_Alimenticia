@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Dashboard</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+		<!-- Alertas -->
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+	</head>
+	<body class="bg-white min-h-screen">
+		<div class="flex-1 px-4 md:px-40 py-5">
+			<div class="max-w-[1024px] mx-auto bg-white">
+				<div class="flex-col justify-start items-start">
+					<div class="p-4">
+						<h1 class="text-[#161411] text-[32px] font-bold font-['Plus Jakarta Sans'] leading-10">
+							Adquisición y Progreso de Pacientes
+						</h1>
+					</div>
+					<div class="p-4 flex gap-4">
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Elegibles consulta gratis</h3>
+							<div class="flex flex-col items-center">
+								<div class="text-3xl font-bold text-[#161411]" id="totalPacientes">0</div>
+								<div class="text-sm text-gray-500" id="porcentaje">0%</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="p-4 flex gap-4">
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Adquisición de Pacientes por Plan</h3>
+							<div id="acquisitionChart" class="w-full h-64"></div>
+						</div>
+					</div>
+
+					<div class="p-4 flex gap-4">
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Distribución de Costos por Plan</h3>
+							<div id="boxPlotChart" class="w-full h-64"></div>
+						</div>
+
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<!-- Plan Básico -->
+							<div class="mb-4">
+								<h3 class="text-[#161411] text-base font-medium mb-2">Plan Básico</h3>
+								<div class="flex justify-between items-center">
+									<div class="text-sm text-gray-500">Costo promedio:</div>
+									<div class="text-lg font-bold text-[#161411]" id="basicoCosto">$0</div>
+								</div>
+								<div class="flex justify-between items-center mt-1">
+									<div class="text-sm text-gray-500">Total pacientes:</div>
+									<div class="text-lg font-bold text-[#161411]" id="basicoPacientes">0</div>
+								</div>
+							</div>
+
+							<!-- Plan Medio -->
+							<div class="mb-4">
+								<h3 class="text-[#161411] text-base font-medium mb-2">Plan Medio</h3>
+								<div class="flex justify-between items-center">
+									<div class="text-sm text-gray-500">Costo promedio:</div>
+									<div class="text-lg font-bold text-[#161411]" id="medioCosto">$0</div>
+								</div>
+								<div class="flex justify-between items-center mt-1">
+									<div class="text-sm text-gray-500">Total pacientes:</div>
+									<div class="text-lg font-bold text-[#161411]" id="medioPacientes">0</div>
+								</div>
+							</div>
+
+							<!-- Plan Alto -->
+							<div>
+								<h3 class="text-[#161411] text-base font-medium mb-2">Plan Alto</h3>
+								<div class="flex justify-between items-center">
+									<div class="text-sm text-gray-500">Costo promedio:</div>
+									<div class="text-lg font-bold text-[#161411]" id="altoCosto">$0</div>
+								</div>
+								<div class="flex justify-between items-center mt-1">
+									<div class="text-sm text-gray-500">Total pacientes:</div>
+									<div class="text-lg font-bold text-[#161411]" id="altoPacientes">0</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Select para planes -->
+					<div class="p-4">
+						<select id="planSelector" class="border border-gray-300 rounded-md px-4 py-2">
+							<option value="plan_basico">Plan Básico</option>
+							<option value="plan_medio">Plan Medio</option>
+							<option value="plan_alto">Plan Alto</option>
+						</select>
+					</div>
+
+					<div class="p-4 flex gap-4">
+						<!-- Peso máximo perdido -->
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Peso máximo perdido</h3>
+							<div class="text-2xl font-bold text-[#161411]" id="maxPesoPerdido">0 kg</div>
+						</div>
+
+						<!-- Peso mínimo perdido -->
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Peso mínimo perdido</h3>
+							<div class="text-2xl font-bold text-[#161411]" id="minPesoPerdido">0 kg</div>
+						</div>
+
+						<!-- Gauge chart 1 - Peso objetivo -->
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Peso objetivo</h3>
+							<div id="gaugeChart1" class="w-full h-48"></div>
+						</div>
+
+						<!-- Gauge chart 2 - Pacientes que ganaron peso -->
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<h3 class="text-[#161411] text-base font-medium mb-2">Progreso < 50%</h3>
+							<div id="gaugeChart2" class="w-full h-48"></div>
+						</div>
+					</div>
+
+					<!-- Gráficas -->
+					<div class="px-4 py-6 flex flex-col md:flex-row gap-4">
+						<div class="flex-1 p-6 rounded-xl border border-[#e5e0db]">
+							<div class="flex justify-between mb-4">
+								<div>
+									<h5
+										class="leading-none text-[#161411] text-2xl font-bold font-['Plus Jakarta Sans'] pb-2"
+										id="promedio-peso"
+									>
+										0 kg
+									</h5>
+									<p class="text-base font-normal text-[#897260]">Promedio peso perdido</p>
+								</div>
+								<div>
+									<h5
+										class="leading-none text-[#161411] text-2xl font-bold font-['Plus Jakarta Sans'] pb-2"
+										id="promedio-progreso"
+									>
+										0%
+									</h5>
+									<p class="text-base font-normal text-[#897260]">Promedio progreso</p>
+								</div>
+							</div>
+							<div id="scatter-chart" class="h-[260px]"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- El script -->
+		<script>
+			const BASE_URL = "http://192.168.100.78:5000";
+			const chartDom = document.getElementById("acquisitionChart");
+			const myChart = echarts.init(chartDom);
+			const boxPlotDom = document.getElementById("boxPlotChart");
+			const boxPlotChart = echarts.init(boxPlotDom);
+			const gauge1Dom = document.getElementById("gaugeChart1");
+			const gauge2Dom = document.getElementById("gaugeChart2");
+			const gauge1Chart = echarts.init(gauge1Dom);
+			const gauge2Chart = echarts.init(gauge2Dom);
+			const scatterDom = document.getElementById("scatter-chart");
+			const scatterChart = echarts.init(scatterDom);
+
+			async function fetchDistribucionPlanes() {
+				try {
+					const response = await fetch(`${BASE_URL}/api/distribucion-costos`);
+					const data = await response.json();
+
+					if (data.status === "success") {
+						// Formatear números con separadores de miles
+						const formatNumber = (num) => new Intl.NumberFormat().format(num).replace(".", ",");
+						// Formatear valor
+						const formatCurrency = (num) => `$${num.toFixed(2)}`;
+
+						// Actualizar Plan Básico
+						document.getElementById("basicoCosto").textContent = formatCurrency(
+							data.data.plan_basico.estadisticas_generales.costo_promedio
+						);
+						document.getElementById("basicoPacientes").textContent = formatNumber(
+							data.data.plan_basico.estadisticas_generales.total_pacientes
+						);
+
+						// Actualizar Plan Medio
+						document.getElementById("medioCosto").textContent = formatCurrency(
+							data.data.plan_medio.estadisticas_generales.costo_promedio
+						);
+						document.getElementById("medioPacientes").textContent = formatNumber(
+							data.data.plan_medio.estadisticas_generales.total_pacientes
+						);
+
+						// Actualizar Plan Alto
+						document.getElementById("altoCosto").textContent = formatCurrency(
+							data.data.plan_alto.estadisticas_generales.costo_promedio
+						);
+						document.getElementById("altoPacientes").textContent = formatNumber(
+							data.data.plan_alto.estadisticas_generales.total_pacientes
+						);
+					} else {
+						throw new Error("Error en la respuesta del servidor");
+					}
+				} catch (error) {
+					console.error("Error al obtener datos de distribución:", error);
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos de distribución por plan",
+						timer: 3000,
+						showConfirmButton: false,
+					});
+				}
+			}
+
+			async function fetchDistribucionCostos() {
+				try {
+					const loadingSwal = Swal.fire({
+						title: "Cargando datos",
+						html: "Obteniendo distribución de costos...",
+						allowOutsideClick: false,
+						allowEscapeKey: false,
+						didOpen: () => {
+							Swal.showLoading();
+						},
+					});
+
+					const response = await fetch(`${BASE_URL}/api/distribucion-costos`);
+					const data = await response.json();
+
+					if (data.status === "success") {
+						const prepareBoxData = (planData) => {
+							return [
+								planData.distribucion_cuartiles.minimo,
+								planData.distribucion_cuartiles.q1,
+								planData.distribucion_cuartiles.mediana,
+								planData.distribucion_cuartiles.q3,
+								planData.distribucion_cuartiles.maximo,
+							];
+						};
+
+						const boxData = [
+							prepareBoxData(data.data.plan_basico),
+							prepareBoxData(data.data.plan_medio),
+							prepareBoxData(data.data.plan_alto),
+						];
+
+						const avgData = [
+							data.data.plan_basico.distribucion_cuartiles.promedio,
+							data.data.plan_medio.distribucion_cuartiles.promedio,
+							data.data.plan_alto.distribucion_cuartiles.promedio,
+						];
+
+						const option = {
+							title: {
+								show: false,
+							},
+							tooltip: {
+								trigger: "item",
+								axisPointer: {
+									type: "shadow",
+								},
+								formatter: function (params) {
+									if (params.seriesName === "Box Plot") {
+										return `${params.name}<br/>
+                                   Máximo: $${params.data[4]}<br/>
+                                   Q3: $${params.data[3]}<br/>
+                                   Mediana: $${params.data[2]}<br/>
+                                   Q1: $${params.data[1]}<br/>
+                                   Mínimo: $${params.data[0]}`;
+									} else {
+										return `${params.name}<br/>
+                                   Promedio: $${params.data}`;
+									}
+								},
+							},
+							grid: {
+								left: "10%",
+								right: "10%",
+								bottom: "15%",
+							},
+							xAxis: {
+								type: "category",
+								data: ["Plan Básico", "Plan Medio", "Plan Alto"],
+								boundaryGap: true,
+								nameGap: 30,
+								splitArea: {
+									show: false,
+								},
+								axisLabel: {
+									formatter: "{value}",
+								},
+							},
+							yAxis: {
+								type: "value",
+								name: "Costo ($)",
+								min: 200, // Establecemos el mínimo a la grafica
+								max: 260, // Establecemos el máximo a la grafica
+								interval: 10, // Intervalos de 10 en 10
+								splitArea: {
+									show: true,
+								},
+								axisLabel: {
+									formatter: "${value}", // Formatear el valor
+								},
+							},
+							series: [
+								{
+									name: "Box Plot",
+									type: "boxplot",
+									data: boxData,
+									itemStyle: {
+										color: "#91cc75",
+										borderColor: "#5470c6",
+									},
+									emphasis: {
+										itemStyle: {
+											borderWidth: 2,
+											shadowBlur: 5,
+											shadowOffsetX: 0,
+											shadowOffsetY: 0,
+											shadowColor: "rgba(0,0,0,0.2)",
+										},
+									},
+								},
+								{
+									name: "Promedio",
+									type: "scatter",
+									data: avgData,
+									symbol: "triangle",
+									symbolSize: 10,
+									itemStyle: {
+										color: "#ee6666",
+									},
+									label: {
+										show: true,
+										position: "top",
+										formatter: "${@[1]}",
+									},
+								},
+							],
+						};
+
+						boxPlotChart.setOption(option);
+						loadingSwal.close();
+					} else {
+						throw new Error("Error en la respuesta del servidor");
+					}
+				} catch (error) {
+					console.error("Error al obtener datos de distribución:", error);
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos de distribución de costos",
+						timer: 3000,
+						showConfirmButton: false,
+					});
+				}
+			}
+
+			// Función total Pacientes y porcentaje
+			async function fetchConsultasGratuitas() {
+				try {
+					// Mostrar loading
+					const elementoPacientes = document.getElementById("totalPacientes");
+					const elementoPorcentaje = document.getElementById("porcentaje");
+
+					elementoPacientes.innerHTML = '<div class="animate-pulse">...</div>';
+					elementoPorcentaje.innerHTML = '<div class="animate-pulse">...</div>';
+
+					const response = await fetch(`${BASE_URL}/api/consultas-gratuitas`);
+					const data = await response.json();
+
+					if (data.status === "success") {
+						// Formatear el número con separadores de miles
+						const totalFormateado = new Intl.NumberFormat()
+							.format(data.data.total_pacientes_calificados)
+							.replace(".", ",");
+						const porcentajeFormateado = data.data.porcentaje_del_total.toFixed(1);
+
+						// Actualizar los elementos
+						elementoPacientes.textContent = `${totalFormateado}`;
+						elementoPorcentaje.textContent = `${porcentajeFormateado}% del total`;
+					} else {
+						throw new Error("Error en la respuesta del servidor");
+					}
+				} catch (error) {
+					console.error("Error al obtener datos de consultas gratuitas:", error);
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos de consultas gratuitas",
+						timer: 3000,
+						showConfirmButton: false,
+					});
+				}
+			}
+
+			// Función para obtener y procesar los datos
+			async function fetchAndDisplayData() {
+				// Mostrar la barra de carga
+				const loadingSwal = Swal.fire({
+					title: "Cargando datos",
+					html: "Por favor espere mientras se obtienen los datos...",
+					allowOutsideClick: false,
+					allowEscapeKey: false,
+					didOpen: () => {
+						Swal.showLoading();
+					},
+				});
+
+				try {
+					const response = await fetch(`${BASE_URL}/api/adquisicion-pacientes`);
+					const data = await response.json();
+
+					// Procesar datos para el gráfico
+					const planAlto = data.data.adquisicion_por_plan.plan_alto;
+					const planMedio = data.data.adquisicion_por_plan.plan_medio;
+					const planBasico = data.data.adquisicion_por_plan.plan_basico;
+
+					// Extraer fechas (meses)
+					const xAxisData = planAlto.map((item) => item.mes);
+
+					// Configuración del gráfico
+					const option = {
+						tooltip: {
+							trigger: "axis",
+							axisPointer: {
+								type: "cross",
+								label: {
+									backgroundColor: "#6a7985",
+								},
+							},
+						},
+						legend: {
+							data: ["Plan Alto", "Plan Medio", "Plan Básico"],
+						},
+						grid: {
+							left: "3%",
+							right: "4%",
+							bottom: "3%",
+							containLabel: true,
+						},
+						xAxis: {
+							type: "category",
+							boundaryGap: false,
+							data: xAxisData,
+						},
+						yAxis: {
+							type: "value",
+						},
+						series: [
+							{
+								name: "Plan Alto",
+								type: "line",
+								areaStyle: {},
+								emphasis: {
+									focus: "series",
+								},
+								data: planAlto.map((item) => item.nuevos_pacientes),
+							},
+							{
+								name: "Plan Medio",
+								type: "line",
+								areaStyle: {},
+								emphasis: {
+									focus: "series",
+								},
+								data: planMedio.map((item) => item.nuevos_pacientes),
+							},
+							{
+								name: "Plan Básico",
+								type: "line",
+								areaStyle: {},
+								emphasis: {
+									focus: "series",
+								},
+								data: planBasico.map((item) => item.nuevos_pacientes),
+							},
+						],
+						color: ["#91cc75", "#fac858", "#ee6666"],
+					};
+
+					// Aplicar la configuración al gráfico
+					myChart.setOption(option);
+
+					// Cerrar la barra de carga
+					loadingSwal.close();
+
+					// Mostrar mensaje de éxito
+					Swal.fire({
+						icon: "success",
+						title: "Datos cargados",
+						text: "Los datos se han cargado correctamente",
+						timer: 1500,
+						showConfirmButton: false,
+					});
+				} catch (error) {
+					console.error("Error al obtener los datos:", error);
+
+					// Cerrar la barra de carga y mostrar error
+					loadingSwal.close();
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos. Por favor, intente nuevamente.",
+					});
+				}
+			}
+
+			function createGaugeOption(value, name, color) {
+				return {
+					series: [
+						{
+							type: "gauge",
+							startAngle: 180,
+							endAngle: 0,
+							min: 0,
+							max: 100,
+							splitNumber: 10,
+							radius: "100%",
+							axisLine: {
+								lineStyle: {
+									width: 6,
+									color: [
+										[0.7, "#91cc75"],
+										[0.9, "#fac858"],
+										[1, color],
+									],
+								},
+							},
+							pointer: {
+								icon: "path://M2090.36389,615.30999 L2090.36389,615.30999 C2091.48372,615.30999 2092.40383,616.23010 2092.40383,617.34993 L2092.40383,671.30999 C2092.40383,672.42982 2091.48372,673.34993 2090.36389,673.34993 L2090.36389,673.34993 C2089.24406,673.34993 2088.32395,672.42982 2088.32395,671.30999 L2088.32395,617.34993 C2088.32395,616.23010 2089.24406,615.30999 2090.36389,615.30999 Z",
+								length: "75%",
+								width: 3,
+								offsetCenter: [0, "5%"],
+							},
+							axisTick: {
+								length: 8,
+								distance: -1,
+								splitNumber: 5,
+								lineStyle: {
+									width: 1,
+									color: "#999",
+								},
+							},
+							splitLine: {
+								length: 12,
+								distance: -1,
+								lineStyle: {
+									width: 2,
+									color: "#999",
+								},
+							},
+							axisLabel: {
+								distance: 15,
+								color: "#999",
+								fontSize: 10,
+							},
+							title: {
+								offsetCenter: [0, "35%"],
+								fontSize: 14,
+							},
+							detail: {
+								fontSize: 20,
+								offsetCenter: [0, "20%"],
+								valueAnimation: true,
+								formatter: function (value) {
+									return Math.round(value) + "%";
+								},
+								color: "inherit",
+							},
+							data: [
+								{
+									value: value,
+									name: name,
+								},
+							],
+						},
+					],
+				};
+			}
+
+			async function fetchProgresoObjetivos() {
+				try {
+					const selectedPlan = document.getElementById("planSelector").value;
+					const response = await fetch(`${BASE_URL}/api/progreso-objetivos-peso`);
+					const data = await response.json();
+
+					if (data.status === "success") {
+						// Encontrar los datos del plan seleccionado
+						const planData = data.data.find((plan) => plan.tipo_plan === selectedPlan);
+
+						if (planData) {
+							// Actualizar pesos máximo y mínimo
+							document.getElementById(
+								"maxPesoPerdido"
+							).textContent = `${planData.max_peso_perdido.toFixed(1)} kg`;
+							document.getElementById(
+								"minPesoPerdido"
+							).textContent = `${planData.min_peso_perdido.toFixed(2)} kg`;
+
+							// Actualizar gauge charts
+							gauge1Chart.setOption(
+								createGaugeOption(planData.porc_alcanzaron_objetivo, "Alcanzaron objetivo", "#ee6666")
+							);
+
+							gauge2Chart.setOption(
+								createGaugeOption(planData.porc_menos_50, "Progreso bajo", "#ee6666")
+							);
+						}
+					} else {
+						throw new Error("Error en la respuesta del servidor");
+					}
+				} catch (error) {
+					console.error("Error al obtener datos de progreso:", error);
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos de progreso",
+						timer: 3000,
+						showConfirmButton: false,
+					});
+				}
+			}
+
+			// Función para actualizar el gráfico
+			async function updateScatterPlot(planType) {
+				try {
+					// Mostrar loading
+					scatterChart.showLoading();
+
+					const response = await fetch(`${BASE_URL}/api/progreso-objetivos-peso`);
+					const data = await response.json();
+
+					if (data.status === "success") {
+						// Encontrar los datos del plan seleccionado
+						const planData = data.data.find((plan) => plan.tipo_plan === planType);
+
+						if (planData) {
+							// Actualizar los promedios mostrados
+							document.getElementById(
+								"promedio-peso"
+							).textContent = `${planData.promedio_peso_perdido.toFixed(2)} kg`;
+							document.getElementById(
+								"promedio-progreso"
+							).textContent = `${planData.porcentaje_promedio_progreso.toFixed(1)}%`;
+
+							// Generar datos para el scatter plot
+							const scatterData = [];
+
+							// Generar puntos
+							// Menos del 50%
+							const pointsUnder50 = Math.floor(planData.total_pacientes * (planData.porc_menos_50 / 100));
+							for (let i = 0; i < pointsUnder50; i++) {
+								scatterData.push([
+									Math.random() * (planData.max_peso_perdido - planData.min_peso_perdido) +
+										planData.min_peso_perdido,
+									Math.random() * (49 - planData.min_porcentaje_progreso) +
+										planData.min_porcentaje_progreso,
+								]);
+							}
+
+							// 50-74%
+							const points50to74 = Math.floor(planData.total_pacientes * (planData.porc_50_a_74 / 100));
+							for (let i = 0; i < points50to74; i++) {
+								scatterData.push([
+									Math.random() * (planData.max_peso_perdido - planData.min_peso_perdido) +
+										planData.min_peso_perdido,
+									Math.random() * (74 - 50) + 50,
+								]);
+							}
+
+							// 75-99%
+							const points75to99 = Math.floor(planData.total_pacientes * (planData.porc_75_a_99 / 100));
+							for (let i = 0; i < points75to99; i++) {
+								scatterData.push([
+									Math.random() * (planData.max_peso_perdido - planData.min_peso_perdido) +
+										planData.min_peso_perdido,
+									Math.random() * (99 - 75) + 75,
+								]);
+							}
+
+							// 100%
+							const points100 = Math.floor(
+								planData.total_pacientes * (planData.porc_alcanzaron_objetivo / 100)
+							);
+							for (let i = 0; i < points100; i++) {
+								scatterData.push([
+									Math.random() * (planData.max_peso_perdido - planData.min_peso_perdido) +
+										planData.min_peso_perdido,
+									100,
+								]);
+							}
+
+							// Configuración del gráfico
+							const option = {
+								tooltip: {
+									trigger: "item",
+									formatter: function (params) {
+										return (
+											`Peso perdido: ${params.value[0].toFixed(2)} kg<br/>` +
+											`Progreso: ${params.value[1].toFixed(1)}%`
+										);
+									},
+								},
+								xAxis: {
+									type: "value",
+									name: "Peso perdido (kg)",
+									min: 0,
+									max: Math.ceil(planData.max_peso_perdido),
+								},
+								yAxis: {
+									type: "value",
+									name: "Progreso (%)",
+									min: 0,
+									max: 100,
+								},
+								series: [
+									{
+										type: "scatter",
+										data: scatterData,
+										symbolSize: 4,
+										itemStyle: {
+											color: "#5470c6",
+											opacity: 0.5,
+										},
+									},
+								],
+								grid: {
+									left: "10%",
+									right: "5%",
+									top: "10%",
+									bottom: "15%",
+								},
+							};
+
+							scatterChart.setOption(option);
+						}
+					}
+
+					scatterChart.hideLoading();
+				} catch (error) {
+					console.error("Error al obtener datos:", error);
+					scatterChart.hideLoading();
+					Swal.fire({
+						icon: "error",
+						title: "Error",
+						text: "No se pudieron cargar los datos del progreso",
+						timer: 3000,
+					});
+				}
+			}
+
+			// Hacer el gráfico responsivo
+			window.addEventListener("resize", () => {
+				myChart.resize();
+				boxPlotChart.resize();
+				gauge1Chart.resize();
+				gauge2Chart.resize();
+				scatterChart.resize();
+			});
+
+			// Evento para actualizar el gráfico al cambiar el plan
+			document.getElementById("planSelector").addEventListener("change", (e) => {
+				updateScatterPlot(e.target.value);
+				fetchProgresoObjetivos();
+			});
+
+			// Cargar los datos inicialmente
+			fetchAndDisplayData();
+			fetchConsultasGratuitas();
+			fetchDistribucionCostos();
+			fetchDistribucionPlanes();
+			fetchProgresoObjetivos();
+			updateScatterPlot("plan_basico");
+		</script>
+	</body>
+</html>

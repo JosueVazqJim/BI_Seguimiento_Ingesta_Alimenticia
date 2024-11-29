@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Dashboard</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- Alertas -->
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+	</head>
+	<body class="bg-white min-h-screen">
+		<div class="flex-1 px-4 md:px-40 py-5">
+			<div class="max-w-[1024px] mx-auto bg-white">
+				<div class="flex-col justify-start items-start">
+					<div class="p-4">
+						<h1 class="text-[#161411] text-[32px] font-bold font-['Plus Jakarta Sans'] leading-10">
+							Balance Scorecard
+						</h1>
+					</div>
+
+                    <div class="p-4 flex gap-4">
+                        <div class="flex-1 p-6 rounded-xl border border-[#e5e0db] overflow-hidden">
+                            <h3 class="text-[#161411] text-base font-medium mb-2">Crecimiento y Adquisición de Pacientes</h3>
+                            <div id="acquisitionChart" class="w-full h-64 relative"></div>
+                        </div>
+                    </div>
+
+                    <div class="p-4 flex gap-4">
+                        <div class="flex-1 p-6 rounded-xl border border-[#e5e0db] overflow-hidden">
+                            <h3 class="text-[#161411] text-base font-medium mb-2">Tasa de Retención de Pacientes</h3>
+                            <div id="retentionChart" class="w-full h-64 relative"></div>
+                        </div>
+                    </div>
+
+                    <!-- Contenedor principal con ambos gráficos -->
+                    <div class="p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Indicador de Pacientes en Alto Riesgo -->
+                            <div class="p-6 rounded-xl border border-[#e5e0db] overflow-hidden bg-white">
+                                <h3 class="text-[#161411] text-base font-medium mb-2">Pacientes en Alto Riesgo</h3>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-3xl font-bold text-red-500" id="highRiskCount">-</div>
+                                    <!--<div id="riskTrend" class="text-sm"></div>-->
+                                </div>
+                                <div class="text-sm text-gray-500 mt-2">Del total de pacientes</div>
+                            </div>
+                    
+                            <!-- Indicador de Días sin Consulta -->
+                            <div class="p-6 rounded-xl border border-[#e5e0db] overflow-hidden bg-white">
+                                <h3 class="text-[#161411] text-base font-medium mb-2">Promedio Días sin Consulta</h3>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-3xl font-bold text-orange-500" id="avgDaysCount">-</div>
+                                    <!--<div id="daysTrend" class="text-sm"></div>-->
+                                </div>
+                                <div class="text-sm text-gray-500 mt-2">Días promedio</div>
+                            </div>
+                    
+                            <!-- Indicador de Satisfacción -->
+                            <div class="p-6 rounded-xl border border-[#e5e0db] overflow-hidden bg-white">
+                                <h3 class="text-[#161411] text-base font-medium mb-2">Índice de Satisfacción</h3>
+                                <div class="flex items-center justify-between">
+                                    <div class="text-3xl font-bold text-blue-500" id="satisfactionIndex">-</div>
+                                    <!--<div id="satisfactionTrend" class="text-sm"></div>-->
+                                </div>
+                                <div class="text-sm text-gray-500 mt-2">Escala 1-10</div>
+                            </div>
+                        </div>
+                    
+                        <!-- Gráfico de tendencia -->
+                        <div class="mt-4 p-6 rounded-xl border border-[#e5e0db] overflow-hidden bg-white">
+                            <h3 class="text-[#161411] text-base font-medium mb-2">Tendencia de Indicadores</h3>
+                            <div id="trendChart" class="w-full h-64 relative"></div>
+                        </div>
+
+                        <!-- Gráfico de Efectividad -->
+                        <div class="mt-4 p-6 rounded-xl border border-[#e5e0db] overflow-hidden bg-white">
+                            <h3 class="text-[#161411] text-base font-medium mb-2">Efectividad de Descuentos en Retención</h3>
+                            <div id="effectivenessChart" class="w-full h-96 relative"></div>
+                        </div>
+                    </div>
+				</div>
+			</div>
+		</div>
+		<!-- El script -->
+		<script>
+const BASE_URL = "http://127.0.0.1:7000";
+const chartDom = document.getElementById("acquisitionChart");
+const chart = echarts.init(chartDom);
+const boxPlotDom = document.getElementById("retentionChart");
+const chartArea = echarts.init(boxPlotDom);
+
+// Función principal para obtener y mostrar datos
+async function fetchAndDisplayData() {
+    // Mostrar la barra de carga
+    const loadingSwal = Swal.fire({
+        title: 'Cargando datos',
+        html: 'Por favor espere mientras se obtienen los datos...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        // Cargar todos los gráficos en paralelo
+        await Promise.all([
+            loadGrowthChart(),
+            loadRetentionChart()
+        ]);
+
+        // Cerrar la barra de carga
+        await loadingSwal.close();
+
+    } catch (error) {
+        console.error('Error al cargar los datos:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudieron cargar los datos correctamente'
+        });
+    }
+}
+
+    // Función para cargar el gráfico de retención
+    async function loadRetentionChart() {
+        try {
+            const response = await fetch(`${BASE_URL}/api/retencion-mensual`);
+            const result = await response.json();
+            const data = result.data;
+
+            const months = data.map(item => {
+                const [year, month] = item.mes.split('-');
+                const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+            });
+            
+            const retentionData = data.map(item => item.tasa_retencion);
+            const metaData = data.map(() => 95);
+
+            const options = {
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        return params[0].name + '<br/>' +
+                            params[0].seriesName + ': ' + params[0].value.toFixed(2) + '%<br/>' +
+                            params[1].seriesName + ': ' + params[1].value + '%';
+                    }
+                },
+                legend: {
+                    data: ['Tasa de Retención', 'Meta'],
+                    top: 0
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: months,
+                    axisLabel: {
+                        rotate: 45
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: 'Tasa de Retención (%)',
+                    min: 0,
+                    max: Math.max(...retentionData) + 10
+                },
+                series: [
+                    {
+                        name: 'Tasa de Retención',
+                        type: 'line',
+                        areaStyle: {
+                            color: '#284D99',
+                            opacity: 0.15
+                        },
+                        data: retentionData,
+                        smooth: true,
+                        lineStyle: {
+                            color: '#284D99',
+                            width: 2
+                        }
+                    },
+                    {
+                        name: 'Meta',
+                        type: 'line',
+                        data: metaData,
+                        lineStyle: {
+                            type: 'dashed',
+                            color: '#ef4444'
+                        },
+                        markArea: {
+                            data: [[{
+                                yAxis: 0
+                            }, {
+                                yAxis: 95
+                            }]],
+                            itemStyle: {
+                                color: '#fee2e2',
+                                opacity: 0.1
+                            }
+                        }
+                    }
+                ]
+            };
+            
+            chartArea.setOption(options);
+
+        } catch (error) {
+            console.error('Error al cargar el gráfico:', error);
+            throw error;
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo cargar el gráfico de retención'
+            });
+        }
+    }
+
+			// Función para cargar el gráfico de crecimiento
+            async function loadGrowthChart() {
+                try {
+                    const response = await fetch(`${BASE_URL}/api/crecimiento`);
+                    const result = await response.json();
+                    const data = result.data;
+
+                    const months = data.map(item => {
+                        const [year, month] = item.mes.split('-');
+                        const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+                        return date.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+                    });
+                    
+                    const growthData = data.map(item => item.porcentajeCrecimiento);
+                    const newPatientsData = data.map(item => item.pacientesNuevos);
+                    const targetData = data.map(() => 10);
+
+                    const options = {
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'cross'
+                            }
+                        },
+                        legend: {
+                            data: ['Pacientes Nuevos', '% Crecimiento', 'Meta'],
+                            top: 0
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: months,
+                            axisLabel: {
+                                rotate: 45
+                            }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: 'Pacientes Nuevos'
+                            },
+                            {
+                                type: 'value',
+                                name: 'Crecimiento (%)',
+                                position: 'right'
+                            }
+                        ],
+                        series: [
+                        {
+                            name: 'Pacientes Nuevos',
+                            type: 'bar',
+                            data: newPatientsData,
+                            itemStyle: {
+                                color: '#284D99'  
+                            }
+                        },
+                            {
+                                name: '% Crecimiento',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: growthData,
+                                smooth: true,
+                                itemStyle: {
+                                    color: '#ff7300'
+                                }
+                            },
+                            {
+                                name: 'Meta',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: targetData,
+                                lineStyle: {
+                                    type: 'dashed'
+                                },
+                                itemStyle: {
+                                    color: '#82ca9d'
+                                }
+                            }
+                        ]
+                    };
+                    
+                    chart.setOption(options);
+
+                } catch (error) {
+                    console.error('Error al cargar el gráfico:', error);
+                    throw error;
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'No se pudo cargar el gráfico'
+                    });
+                }
+            }
+
+        // Event Listeners
+        window.addEventListener('resize', () => {
+            chart.resize();
+            chartArea.resize();
+        });
+
+        // Inicialización cuando el DOM está listo
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAndDisplayData();
+        });
+		</script>
+        
+        <script>
+
+            async function initializeIndicators() {
+                try {
+                    const TOTAL_PATIENTS = 191314;  // Total de pacientes en el sistema
+                    const formatNumber = (num) => new Intl.NumberFormat().format(num).replace(".", ",");
+
+                    // Obtener datos de ambas APIs
+                    const [abandonoResponse, satisfaccionResponse] = await Promise.all([
+                        fetch(`${BASE_URL}/api/alertas-abandono`),
+                        fetch(`${BASE_URL}/api/alertas-abandono/satisfaccion`)
+                    ]);
+                    
+                    const abandonoData = await abandonoResponse.json();
+                    const satisfaccionData = await satisfaccionResponse.json();
+            
+                    const data = abandonoData.data;
+                    const satisfaccionMensual = satisfaccionData.data;
+            
+                    // Calcular indicadores
+                    const highRiskPatients = data.filter(p => p.nivel_riesgo_abandono === "Alto Riesgo").length;
+                    const highRiskPercentage = ((highRiskPatients / TOTAL_PATIENTS) * 100).toFixed(1);
+                    // Para el promedio de días sin consulta, usar el total real de pacientes
+                    const avgDaysWithoutConsult = Math.round(
+                        data.reduce((acc, curr) => acc + curr.dias_sin_consulta, 0) / TOTAL_PATIENTS
+                    );
+                    function formatMonthYear(dateStr) {
+                        const [year, month] = dateStr.split('-');
+                        const months = [
+                            'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                            'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+                        ];
+                        
+                        return `${months[parseInt(month) - 1]} ${year.slice(2)}`;
+                    }
+                    // Obtener la satisfacción más reciente
+                    const currentSatisfaction = satisfaccionMensual[0]?.promedio_satisfaccion || 0;
+            
+                    // Actualizar los contadores
+                    //document.getElementById('highRiskCount').textContent = highRiskPatients.toLocaleString();
+                    //document.getElementById('avgDaysCount').textContent = avgDaysWithoutConsult;
+                    document.getElementById('satisfactionIndex').textContent = currentSatisfaction.toFixed(1);
+                    document.getElementById('highRiskCount').textContent = `${formatNumber(highRiskPatients)} (${highRiskPercentage}%)`;
+                    document.getElementById('avgDaysCount').textContent = formatNumber(avgDaysWithoutConsult);
+            
+                    // Inicializar el gráfico de tendencia
+                    const trendChart = echarts.init(document.getElementById('trendChart'));
+            
+                    // Agrupar datos por mes para la tendencia de abandonos
+                    const monthlyData = data.reduce((acc, curr) => {
+                        const date = new Date(curr.ultima_consulta);
+                        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                        
+                        if (!acc[monthKey]) {
+                            acc[monthKey] = {
+                                highRisk: 0,
+                                totalDays: 0,
+                                count: 0
+                            };
+                        }
+                        
+                        acc[monthKey].count++;
+                        acc[monthKey].totalDays += curr.dias_sin_consulta;
+                        if (curr.nivel_riesgo_abandono === "Alto Riesgo") {
+                            acc[monthKey].highRisk++;
+                        }
+                        
+                        return acc;
+                    }, {});
+            
+                    // Convertir datos de satisfacción a un formato más fácil de usar
+                    const satisfactionByMonth = satisfaccionMensual.reduce((acc, curr) => {
+                        acc[curr.mes] = curr.promedio_satisfaccion;
+                        return acc;
+                    }, {});
+            
+                    const months = [...new Set([
+                        ...Object.keys(monthlyData),
+                        ...satisfaccionMensual.map(s => s.mes)
+                    ])].sort();
+            
+                    const trendOption = {
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'shadow'
+                            }
+                        },
+                        legend: {
+                            data: ['Pacientes Alto Riesgo', 'Días sin Consulta', 'Satisfacción'],
+                            bottom: 0
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '15%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: months.map(m => formatMonthYear(m)),
+                            axisLabel: {
+                                rotate: 45
+                            }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: 'Pacientes/Días',
+                                position: 'left'
+                            },
+                            {
+                                type: 'value',
+                                name: 'Satisfacción (1-10)',
+                                position: 'right',
+                                min: 0,
+                                max: 10
+                            }
+                        ],
+                        series: [
+                            {
+                                name: 'Pacientes Alto Riesgo',
+                                type: 'bar',
+                                data: months.map(m => monthlyData[m]?.highRisk || 0),
+                                itemStyle: { color: '#ff4d4f' }
+                            },
+                            {
+                                name: 'Días sin Consulta',
+                                type: 'line',
+                                data: months.map(m => monthlyData[m] ? 
+                                    Math.round(monthlyData[m].totalDays / monthlyData[m].count) : 0),
+                                itemStyle: { color: '#faad14' }
+                            },
+                            {
+                                name: 'Satisfacción',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: months.map(m => satisfactionByMonth[m] || null),
+                                itemStyle: { color: '#1890ff' },
+                                smooth: true
+                            }
+                        ]
+                    };
+            
+                    trendChart.setOption(trendOption);
+            
+                    // Hacer el gráfico responsivo
+                    window.addEventListener('resize', function() {
+                        trendChart.resize();
+                    });
+            
+                    // Calcular y mostrar tendencias
+                    const showTrend = (currentValue, previousValue, elementId) => {
+                        const trend = ((currentValue - previousValue) / previousValue) * 100;
+                        const element = document.getElementById(elementId);
+                        if (Math.abs(trend) > 0) {
+                            element.innerHTML = `
+                                <span class="${trend > 0 ? 'text-green-500' : 'text-red-500'}">
+                                    ${trend > 0 ? '↑' : '↓'} ${Math.abs(trend).toFixed(1)}%
+                                </span>`;
+                        }
+                    };
+            
+                    // Calcular tendencias de satisfacción
+                    if (satisfaccionMensual.length >= 2) {
+                        showTrend(
+                            satisfaccionMensual[0].promedio_satisfaccion,
+                            satisfaccionMensual[1].promedio_satisfaccion,
+                            'satisfactionTrend'
+                        );
+                    }
+            
+                    // Calcular tendencias de abandono y días sin consulta
+                    const lastTwo = months.slice(-2);
+                    if (lastTwo.length === 2) {
+                        const [prevMonth, lastMonth] = lastTwo;
+                        
+                        showTrend(
+                            monthlyData[lastMonth]?.highRisk || 0,
+                            monthlyData[prevMonth]?.highRisk || 0,
+                            'riskTrend'
+                        );
+                        
+                        showTrend(
+                            monthlyData[lastMonth]?.totalDays / monthlyData[lastMonth]?.count || 0,
+                            monthlyData[prevMonth]?.totalDays / monthlyData[prevMonth]?.count || 0,
+                            'daysTrend'
+                        );
+                    }
+            
+                } catch (error) {
+                    console.error('Error al cargar los datos:', error);
+                }
+            }
+            
+            // Iniciar la carga de datos
+            initializeIndicators();
+        </script>
+        
+        <script>
+            const formatNumber = (num) => new Intl.NumberFormat().format(num).replace(".", ",");
+            const formatMonthYear = (dateStr) => {
+                const [year, month] = dateStr.split('-');
+                const months = [
+                    'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                    'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+                ];
+                return `${months[parseInt(month) - 1]} ${year.slice(2)}`;
+            };
+            
+            async function initializeEffectivenessChart() {
+                try {
+                    const response = await fetch(`${BASE_URL}/api/efectividad-descuentos`);
+                    const result = await response.json();
+                    const data = result.data;
+            
+                    const effectivenessChart = echarts.init(document.getElementById('effectivenessChart'));
+                    
+                    const months = data.map(item => formatMonthYear(item.mes));
+                    const option = {
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: {
+                                type: 'shadow'
+                            },
+                            formatter: function(params) {
+                                const monthData = data[params[0].dataIndex];
+                                return `${params[0].name}<br/>
+                                    Pacientes con descuento: ${formatNumber(monthData.pacientesConDescuento)}<br/>
+                                    Pacientes retenidos: ${formatNumber(monthData.pacientesRetenidos)}<br/>
+                                    Retención: ${monthData.porcentajeRetencion.toFixed(1)}%<br/>
+                                    Ahorro promedio: $${monthData.ahorroPromedio.toFixed(2)}`;
+                            }
+                        },
+                        legend: {
+                            data: ['% Retención', 'Pacientes con Descuento', 'Pacientes Retenidos'],
+                            bottom: 0
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '15%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            data: months,
+                            axisLabel: {
+                                rotate: 45,
+                                interval: 0
+                            }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: 'Pacientes',
+                                position: 'left'
+                            },
+                            {
+                                type: 'value',
+                                name: '% Retención',
+                                position: 'right',
+                                min: 0,
+                                max: 100,
+                                axisLabel: {
+                                    formatter: '{value}%'
+                                }
+                            }
+                        ],
+                        series: [
+                            {
+                                name: 'Pacientes con Descuento',
+                                type: 'bar',
+                                data: data.map(item => item.pacientesConDescuento),
+                                itemStyle: {
+                                    color: '#2E5BFF  '
+                                }
+                            },
+                            {
+                                name: 'Pacientes Retenidos',
+                                type: 'bar',
+                                data: data.map(item => item.pacientesRetenidos),
+                                itemStyle: {
+                                    color: '#00C48C '
+                                }
+                            },
+                            {
+                                name: '% Retención',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: data.map(item => item.porcentajeRetencion),
+                                itemStyle: {
+                                    color: '#FF6B6B '
+                                },
+                                lineStyle: {
+                                    width: 3
+                                },
+                                symbol: 'circle',
+                                symbolSize: 8
+                            }
+                        ]
+                    };
+            
+                    effectivenessChart.setOption(option);
+            
+                    window.addEventListener('resize', function() {
+                        effectivenessChart.resize();
+                    });
+            
+                } catch (error) {
+                    console.error('Error al cargar los datos:', error);
+                }
+            }
+            
+            // Inicializar los gráficos
+            initializeEffectivenessChart();
+            </script>
+	</body>
+</html>
